@@ -1128,9 +1128,10 @@ function pmprosm_pmpro_checkout_boxes()
 
 									while (i < newseats)
 									{
-                                        var div = '<div id="sponsored_account_'+i+'"><hr /><div><h3><?php echo $sponsored_level->name; _e(" account information # XXXX", "pmprosm"); ?> </h3><h4><?php if (isset($pmprosm_values["sponsored_header_text"]))echo $pmprosm_values["sponsored_header_text"];else _e("Please fill in following information and account(s) will be created.", "pmprosm");?></h4></div><?php if(!empty($pmprosm_values["children_get_name"])) { ?><label>First Name</label><input type="text" name="add_sub_accounts_first_name[]" value="" size="20" /><br><label>Last Name</label><input type="text" name="add_sub_accounts_last_name[]" value="" size="20" /><br><?php } ?><?php if(empty($pmprosm_values["children_hide_username"])){ ?><label>Username</label><input type="text" name="add_sub_accounts_username[]" value="" size="20" /><br><?php } ?><label>Email</label><input type="text" name="add_sub_accounts_email[]" value"" size="20" /><br><label>Password</label><input type="password" name="add_sub_accounts_password[]" value="" size="20" /><?php echo $empty_child_fields;?></div>';
-                                        newdiv = div.replace(/XXXX/g,i);
-                                        jQuery('#sponsored_accounts').append(newdiv);										i++;
+									var div = '<div id="sponsored_account_' + i + '"><hr /><div><h3><?php echo $sponsored_level->name; _e(" account information # XXXX", "pmprosm"); ?> </h3><h4><?php if (isset($pmprosm_values["sponsored_header_text"]))echo $pmprosm_values["sponsored_header_text"];else _e("Please fill in following information and account(s) will be created.", "pmprosm");?></h4></div><?php if(!empty($pmprosm_values["children_get_name"])) { ?><label>First Name</label><input type="text" name="add_sub_accounts_first_name[]" value="" size="20" /><br><label>Last Name</label><input type="text" name="add_sub_accounts_last_name[]" value="" size="20" /><br><?php } ?><?php if(empty($pmprosm_values["children_hide_username"])){ ?><label>Username</label><input type="text" name="add_sub_accounts_username[]" value="" size="20" /><br><?php } ?><label>Email</label><input type="text" name="add_sub_accounts_email[]" value="" size="20" /><br><?php if(empty($pmprosm_values["children_hide_password"])){ ?><label>Password</label><input type="password" name="add_sub_accounts_password[]" value="" size="20" /><?php } echo $empty_child_fields; ?></div>';
+										newdiv = div.replace(/XXXX/g,i);
+										jQuery('#sponsored_accounts').append(newdiv);
+										i++;
 									}
 								}
 							}
@@ -1247,6 +1248,10 @@ function pmprosm_pmpro_after_checkout($user_id)
 		//Create additional child member here
 		if(!empty($_REQUEST['add_sub_accounts_username']))
 			$child_username = $_REQUEST['add_sub_accounts_username'];
+		elseif( $parent_level['children_hide_username'] )
+		{
+			$child_username = $_REQUEST['add_sub_accounts_email'];
+		}
 		else
 			$child_username = array();
 			
@@ -1259,8 +1264,19 @@ function pmprosm_pmpro_after_checkout($user_id)
 			$child_last_name = $_REQUEST['add_sub_accounts_last_name'];
 		else
 			$child_last_name = array();
-			
-		$child_password = $_REQUEST['add_sub_accounts_password'];
+		
+		if(!empty($parent_level['children_hide_password']))
+		{
+			$child_password = array();
+			for( $i = 0; $i < $seats; $i++ )
+			{
+				// generate a password for each of the child accounts
+				$child_password[] = pmpro_getDiscountCode() . pmpro_getDiscountCode();
+			}
+		}
+		else
+			$child_password = $_REQUEST['add_sub_accounts_password'];
+
 		$child_email = $_REQUEST['add_sub_accounts_email'];
 					
 		$sponsored_code = pmprosm_getCodeByUserID($user_id);
@@ -1278,7 +1294,7 @@ function pmprosm_pmpro_after_checkout($user_id)
 				//if a blank entry is find, skip it
 				if(empty($child_email[$i]))
 					   continue;
-					   
+				
 				$child_user_id = wp_create_user( $child_username[$i], $child_password[$i], $child_email[$i]);
 
 				if( is_wp_error($child_user_id) ) {
@@ -1513,12 +1529,23 @@ function pmprosm_pmpro_registration_checks_sponsored_accounts($okay)
 	$unique_emails = array_unique(array_filter($child_emails));
 	$passwords = array_filter($child_passwords);
 	
-	if($num_new_accounts > 0 && (count($unique_usernames) < $num_new_accounts || count($unique_emails) < $num_new_accounts || count($passwords) < $num_new_accounts))
+	
+	if( empty( $pmprosm_values['children_hide_username'] ) && $num_new_accounts > 0 && count($unique_usernames) < $num_new_accounts )
 	{
-		pmpro_setMessage(__("Please enter details for each new sponsored account."),"pmpro_error");
+		pmpro_setMessage(__("Please enter unique usernames for each new sponsored account."),"pmpro_error");
 		$okay = false;
 	}
-	elseif(count($unique_usernames) != count($child_usernames) || count($unique_emails) != count($child_emails))
+	if( $num_new_accounts > 0 &&  count($unique_emails) < $num_new_accounts )
+	{
+		pmpro_setMessage(__("Please enter unique emails for each new sponsored account."),"pmpro_error");
+		$okay = false;
+	}
+	if( empty( $pmprosm_values['children_hide_password'] ) && $num_new_accounts > 0 && count($passwords) < $num_new_accounts )
+	{
+		pmpro_setMessage(__("Please enter passwords for each new sponsored account."),"pmpro_error");
+		$okay = false;
+	}
+	elseif( count($unique_usernames) != count($child_usernames) || count($unique_emails) != count($child_emails))
 	{		
 		pmpro_setMessage(__("Each sponsored account must have a unique username and email address."),"pmpro_error");
 		$okay = false;
